@@ -1,0 +1,12 @@
+backend/target/
+backend/.idea/
+backend/*.iml
+.idea/
+.vscode/
+node_modules/
+dist/
+build/
+*.log
+*.tmp
+*.swp
+*.class

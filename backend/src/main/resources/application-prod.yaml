@@ -1,0 +1,18 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:urlshortner}
+    username: ${DB_USERNAME:urlshortner}
+    password: ${DB_PASSWORD:urlshortner}
+    hikari:
+      maximum-pool-size: 10
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
+app:
+  public-base-url: ${PUBLIC_BASE_URL:http://localhost:8080}
+  jwt:
+    secret: ${JWT_SECRET:change-me-change-me-change-me-change-me}
+    expiration-ms: ${JWT_EXPIRATION_MS:259200000}

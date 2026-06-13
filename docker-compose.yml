@@ -1,0 +1,47 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: urlshortner-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: urlshortner
+      POSTGRES_USER: urlshortner
+      POSTGRES_PASSWORD: urlshortner123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U urlshortner -d urlshortner"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./backend
+    container_name: urlshortner-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: urlshortner
+      DB_USERNAME: urlshortner
+      DB_PASSWORD: urlshortner123
+      PUBLIC_BASE_URL: http://localhost:8080
+      JWT_SECRET: change-me-change-me-change-me-change-me
+      ADMIN_EMAIL: admin@example.com
+      ADMIN_PASSWORD: Admin12345!
+      ADMIN_FULL_NAME: Admin User
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://localhost:8080/login/oauth2/code/google}
+    ports:
+      - "8080:8080"
+
+volumes:
+  postgres_data:
