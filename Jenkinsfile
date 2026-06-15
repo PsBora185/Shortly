@@ -138,6 +138,14 @@ pipeline {
     post {
         always {
             cleanWs()
+            sh """
+                # Remove specific images built during this pipeline
+                docker rmi \${BACKEND_IMG}:\${TAG} \${BACKEND_IMG}:latest || true
+                docker rmi \${FRONTEND_IMG}:\${TAG} \${FRONTEND_IMG}:latest || true
+                
+                # Prune dangling/unused build cache to save space
+                docker image prune -f || true
+            """
         }
     }
 }
