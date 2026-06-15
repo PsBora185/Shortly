@@ -25,7 +25,7 @@ pipeline {
         stage('Build & Test Backend') {
             steps {
                 dir('backend') {
-                    sh './mvnw clean test'
+                    sh 'mvn clean test'
                 }
             }
         }
