@@ -19,3 +19,8 @@ export async function fetchAnalytics(shortCode: string) {
 export async function deleteUrl(id: string) {
   await api.delete(`/api/urls/${id}`);
 }
+
+export async function updateUrl(id: string, request: { originalUrl: string }) {
+  const { data } = await api.put<UrlResponse>(`/api/urls/${id}`, request);
+  return data;
+}

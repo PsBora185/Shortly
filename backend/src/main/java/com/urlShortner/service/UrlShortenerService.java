@@ -2,6 +2,7 @@ package com.urlShortner.service;
 
 import com.urlShortner.dto.AnalyticsResponse;
 import com.urlShortner.dto.CreateUrlRequest;
+import com.urlShortner.dto.UpdateUrlRequest;
 import com.urlShortner.dto.UrlResponse;
 import com.urlShortner.entity.Url;
 import com.urlShortner.entity.User;
@@ -100,6 +101,18 @@ public class UrlShortenerService {
 				: urlRepository.findByIdAndUser_Email(id, normalizeOwnerEmail(ownerEmail))
 						.orElseThrow(() -> new ResourceNotFoundException("URL not found: " + id));
 		urlRepository.delete(url);
+	}
+
+	@Transactional
+	public UrlResponse updateUrl(UUID id, String ownerEmail, boolean admin, UpdateUrlRequest request) {
+		Url url = admin
+				? urlRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("URL not found: " + id))
+				: urlRepository.findByIdAndUser_Email(id, normalizeOwnerEmail(ownerEmail))
+					.orElseThrow(() -> new ResourceNotFoundException("URL not found: " + id));
+
+		String originalUrl = normalizeAndValidateUrl(request.originalUrl());
+		url.setOriginalUrl(originalUrl);
+		return toResponse(urlRepository.save(url));
 	}
 
 	@Transactional(readOnly = true)

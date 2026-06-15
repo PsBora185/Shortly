@@ -3,7 +3,7 @@ import { Card } from '../components/ui/Card';
 import { StatCard } from '../components/analytics/StatCard';
 import { UrlShortenForm } from '../components/forms/UrlShortenForm';
 import { UrlsTable } from '../components/tables/UrlsTable';
-import { useUrls } from '../hooks/useUrls';
+import { useUrls, useDeleteUrl, useUpdateUrl } from '../hooks/useUrls';
 import { formatRelative } from '../utils/format';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
@@ -11,6 +11,8 @@ import { useAppToast } from '../hooks/useToast';
 
 export function DashboardPage() {
   const { data: urls = [], isLoading } = useUrls();
+  const deleteMutation = useDeleteUrl();
+  const updateMutation = useUpdateUrl();
   const toast = useAppToast();
   const [selectedUrl, setSelectedUrl] = useState<string | null>(null);
 
@@ -49,14 +51,32 @@ export function DashboardPage() {
       </div>
 
       <Card>
-        <div className="mb-5 flex items-center justify-between">
+        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-xl font-semibold text-slate-900">Recent URLs</h2>
             <p className="mt-1 text-sm text-slate-500">Your latest links and current click counts.</p>
           </div>
           <Badge>{sortedRecent.length} items</Badge>
         </div>
-        <UrlsTable urls={sortedRecent} loading={isLoading} />
+        <UrlsTable
+          urls={sortedRecent}
+          loading={isLoading}
+          onDelete={(id) => {
+            deleteMutation.mutate(id, {
+              onSuccess: () => toast.success('Short URL deleted.'),
+              onError: () => toast.error('Failed to delete URL.'),
+            });
+          }}
+          onUpdate={(id, originalUrl) => {
+            updateMutation.mutate(
+              { id, originalUrl },
+              {
+                onSuccess: () => toast.success('Short URL updated.'),
+                onError: () => toast.error('Failed to update URL.'),
+              },
+            );
+          }}
+        />
       </Card>
 
       {urls.length > 0 ? (

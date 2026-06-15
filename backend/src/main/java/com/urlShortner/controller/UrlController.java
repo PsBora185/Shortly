@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.urlShortner.dto.AnalyticsResponse;
 import com.urlShortner.dto.CreateUrlRequest;
 import com.urlShortner.dto.PurgeExpiredResponse;
+import com.urlShortner.dto.UpdateUrlRequest;
 import com.urlShortner.dto.UrlResponse;
 import com.urlShortner.service.UrlShortenerService;
 
@@ -48,6 +50,12 @@ public class UrlController {
 	public ResponseEntity<Void> delete(Authentication authentication, @PathVariable UUID id) {
 		urlShortenerService.deleteById(id, authentication.getName(), isAdmin(authentication));
 		return ResponseEntity.noContent().build();
+	}
+
+	@PutMapping("/api/urls/{id}")
+	public ResponseEntity<UrlResponse> update(Authentication authentication, @PathVariable UUID id, @Valid @RequestBody UpdateUrlRequest request) {
+		UrlResponse response = urlShortenerService.updateUrl(id, authentication.getName(), isAdmin(authentication), request);
+		return ResponseEntity.ok(response);
 	}
 
 	@GetMapping("/api/analytics/{shortCode}")
