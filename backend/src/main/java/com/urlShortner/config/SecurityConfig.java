@@ -23,7 +23,7 @@ public class SecurityConfig {
 
 	private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
-	@Value("${app.cors.allowed-origins:http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://localhost:3000}")
+	@Value("${app.cors.allowed-origins:http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://localhost:3000,http://localhost:80,http://localhost}")
 	private String allowedOrigins;
 
 	public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
@@ -56,6 +56,9 @@ public class SecurityConfig {
 				.filter(s -> !s.isBlank())
 				.toList();
 		configuration.setAllowedOrigins(origins);
+		if (origins.isEmpty()) {
+			configuration.addAllowedOriginPattern("*");
+		}
 		configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
 		configuration.setAllowedHeaders(List.of("*"));
 		configuration.setAllowCredentials(true);
