@@ -30,6 +30,22 @@ pipeline {
             }
         }
 
+        stage('Cleanup Old Images') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh """
+                        # Remove old app images (keep none - fresh build every time)
+                        docker images --format '{{.Repository}}:{{.Tag}}' | \\
+                            grep -E '${DOCKER_USER}/${APP_NAME}-(backend|frontend)' | \\
+                            xargs -r docker rmi -f || true
+
+                        # Remove dangling/unused images
+                        docker image prune -f || true
+                    """
+                }
+            }
+        }
+
         stage('Build Images') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
@@ -86,6 +102,10 @@ pipeline {
         always {
             cleanWs()
             sh """
+                # Remove newly built images after push to free disk space
+                docker images --format '{{.Repository}}:{{.Tag}}' | \\
+                    grep -E '${APP_NAME}-(backend|frontend)' | \\
+                    xargs -r docker rmi -f || true
                 docker image prune -f || true
             """
         }
