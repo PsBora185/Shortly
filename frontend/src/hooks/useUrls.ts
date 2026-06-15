@@ -1,16 +1,7 @@
-import axios from 'axios';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createUrl, deleteUrl, fetchUrls, updateUrl } from '../services/url.service';
+import { api } from '../services/api';
 import type { CreateUrlRequest, UrlResponse } from '../types';
-
-const createAdminApi = (token: string) =>
-  axios.create({
-    baseURL: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-  });
 
 export function useUrls() {
   return useQuery({
@@ -52,29 +43,24 @@ export function useUpdateUrl() {
   });
 }
 
-export function useAdminUrls(adminToken: string | null) {
+export function useAdminUrls(enabled = true) {
   return useQuery<UrlResponse[]>({
     queryKey: ['admin-urls'],
     queryFn: async () => {
-      if (!adminToken) {
-        throw new Error('Admin access required');
-      }
-      const { data } = await createAdminApi(adminToken).get<UrlResponse[]>('/api/urls');
+      const { data } = await api.get<UrlResponse[]>('/api/urls');
       return data;
     },
-    enabled: Boolean(adminToken),
+    enabled: Boolean(enabled),
+    staleTime: 1000 * 60,
   });
 }
 
-export function useAdminDeleteUrl(adminToken: string | null) {
+export function useAdminDeleteUrl() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      if (!adminToken) {
-        throw new Error('Admin access required');
-      }
-      await createAdminApi(adminToken).delete(`/api/urls/${id}`);
+      await api.delete(`/api/urls/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-urls'] });
