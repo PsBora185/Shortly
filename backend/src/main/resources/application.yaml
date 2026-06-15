@@ -1,8 +1,6 @@
 spring:
   application:
     name: urlShortner
-  profiles:
-    default: local
   mail:
     host: smtp.gmail.com
     port: 587
