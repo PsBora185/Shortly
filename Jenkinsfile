@@ -7,10 +7,11 @@ pipeline {
     }
 
     environment {
-        NAMESPACE     = 'shortly'
+        K8S_NAMESPACE = 'shortly'
         K8S_DIR       = 'k8s'
         KUBECONFIG    = '/home/ubuntu/.kube/config'
         TAG           = "v${BUILD_NUMBER}"
+        APP_NAME      = 'shortly'
     }
 
     stages {
@@ -32,8 +33,8 @@ pipeline {
         stage('Build Images') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    sh 'docker build -t ${DOCKER_USER}/shortly-backend:${TAG} ./backend'
-                    sh 'docker build -t ${DOCKER_USER}/shortly-frontend:${TAG} ./frontend'
+                    sh 'docker build -t ${DOCKER_USER}/${APP_NAME}-backend:${TAG} ./backend'
+                    sh 'docker build -t ${DOCKER_USER}/${APP_NAME}-frontend:${TAG} ./frontend'
                 }
             }
         }
@@ -42,8 +43,8 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                     sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
-                    sh 'docker push ${DOCKER_USER}/shortly-backend:${TAG}'
-                    sh 'docker push ${DOCKER_USER}/shortly-frontend:${TAG}'
+                    sh 'docker push ${DOCKER_USER}/${APP_NAME}-backend:${TAG}'
+                    sh 'docker push ${DOCKER_USER}/${APP_NAME}-frontend:${TAG}'
                 }
             }
         }
@@ -59,11 +60,11 @@ pipeline {
                         # Create Namespace and Secrets
                         kubectl apply -f ${K8S_DIR}/namespace.yaml
                         
-                        kubectl create secret generic app-secrets \\
+                        kubectl create secret generic ${APP_NAME}-secrets \\
                             --from-literal=SPRING_MAIL_USERNAME="\$GMAIL_USER" \\
                             --from-literal=SPRING_MAIL_PASSWORD="\$GMAIL_PASS" \\
                             --from-literal=JWT_SECRET="\$JWT_SECRET" \\
-                            -n ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+                            -n ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
 
                         # Apply Base Configurations
                         kubectl apply -f ${K8S_DIR}/postgres.yaml
@@ -73,8 +74,8 @@ pipeline {
                         kubectl apply -f ${K8S_DIR}/frontend-service.yaml
 
                         # Update Pods with New Version
-                        kubectl set image deployment/shortly-backend shortly-backend=\${DOCKER_USER}/shortly-backend:\${TAG} -n ${NAMESPACE}
-                        kubectl set image deployment/shortly-frontend shortly-frontend=\${DOCKER_USER}/shortly-frontend:\${TAG} -n ${NAMESPACE}
+                        kubectl set image deployment/shortly-backend shortly-backend=\${DOCKER_USER}/shortly-backend:\${TAG} -n ${K8S_NAMESPACE}
+                        kubectl set image deployment/shortly-frontend shortly-frontend=\${DOCKER_USER}/shortly-frontend:\${TAG} -n ${K8S_NAMESPACE}
                     """
                 }
             }

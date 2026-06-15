@@ -1,7 +1,9 @@
 import axios from 'axios';
 
+// In production, VITE_API_BASE_URL is intentionally empty so requests go to relative /api/* paths,
+// which nginx proxies to the backend. Locally it falls back to http://localhost:8080.
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080',
+  baseURL: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080',
   headers: {
     'Content-Type': 'application/json',
   },
