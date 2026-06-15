@@ -93,15 +93,20 @@ pipeline {
                 // Get the public IP of the EC2 instance
                 def publicIp = sh(script: 'curl -s ifconfig.me', returnStdout: true).trim()
                 
-                emailext to: 'pranavsinghbora@gmail.com',
-                         subject: "SUCCESS: Shortly Pipeline Build #${BUILD_NUMBER}",
-                         body: "The deployment was successful!\n\nShortly is live on: http://${publicIp}:30080\n\nCheck Jenkins for details: ${BUILD_URL}"
+                echo "Deployed successfully live on EC2!"
+                emailext(
+                    subject: "SUCCESS: Shortly Pipeline Build #${BUILD_NUMBER}",
+                    body: "The deployment was successful!\n\nShortly is live on: http://${publicIp}:30080\n\nCheck Jenkins for details: ${BUILD_URL}",
+                    to: "pranavsinghbora@gmail.com"
+                )
             }
         }
         failure {
-            emailext to: 'pranavsinghbora@gmail.com',
-                     subject: "FAILED: Shortly Pipeline Build #${BUILD_NUMBER}",
-                     body: "The pipeline failed to deploy.\n\nPlease check the Jenkins logs to fix the issue: ${BUILD_URL}"
+            emailext(
+                subject: "FAILED: Shortly Pipeline Build #${BUILD_NUMBER}",
+                body: "The pipeline failed to deploy.\n\nPlease check the Jenkins logs to fix the issue: ${BUILD_URL}",
+                to: "pranavsinghbora@gmail.com"
+            )
         }
     }
 }
