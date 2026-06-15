@@ -12,7 +12,7 @@ spring:
     enabled: true
 
 app:
-  public-base-url: ${PUBLIC_BASE_URL:http://localhost:8080}
+  public-base-url: ${BASE_URL:${PUBLIC_BASE_URL:http://localhost:8080}}
   jwt:
     secret: ${JWT_SECRET:change-me-change-me-change-me-change-me}
     expiration-ms: ${JWT_EXPIRATION_MS:259200000}

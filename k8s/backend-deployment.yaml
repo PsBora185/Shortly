@@ -30,10 +30,16 @@ spec:
               value: "shortly"
             - name: DB_PASSWORD
               value: "shortly123"
-            - name: PUBLIC_BASE_URL
-              value: "http://shortly-frontend"
+            - name: BASE_URL
+              value: "http://13.204.76.112:30081"
             - name: APP_CORS_ALLOWED_ORIGINS
               value: "http://13.204.76.112:30080"
+            - name: ADMIN_EMAIL
+              value: "admin@gmail.com"
+            - name: ADMIN_PASSWORD
+              value: "admin185"
+            - name: ADMIN_FULL_NAME
+              value: "Admin"
           envFrom:
             - secretRef:
                 name: shortly-secrets
