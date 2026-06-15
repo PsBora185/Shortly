@@ -19,6 +19,19 @@ spec:
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "prod"
+            - name: DB_HOST
+              value: "shortly-postgres"
+            - name: DB_NAME
+              value: "shortly"
+            - name: DB_USERNAME
+              value: "shortly"
+            - name: DB_PASSWORD
+              value: "shortly123"
+            - name: PUBLIC_BASE_URL
+              value: "http://localhost:8080"
           envFrom:
             - secretRef:
                 name: app-secrets

@@ -97,7 +97,6 @@ pipeline {
 
         // ─────────────────────────────────────────────
         stage('Deploy to Kubernetes') {
-            when { branch 'main' }
             steps {
                 withCredentials([
                     usernamePassword(credentialsId: 'gmail', usernameVariable: 'GMAIL_USER', passwordVariable: 'GMAIL_PASS'),
@@ -115,6 +114,7 @@ pipeline {
                             -n ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
 
                         # Apply manifests
+                        kubectl apply -f ${K8S_DIR}/postgres.yaml
                         kubectl apply -f ${K8S_DIR}/backend-deployment.yaml
                         kubectl apply -f ${K8S_DIR}/backend-service.yaml
                         kubectl apply -f ${K8S_DIR}/frontend-deployment.yaml
