@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: shortly-backend
-          image: YOUR_DOCKERHUB_USERNAME/shortly-backend:latest
+          image: psbora185/shortly-backend:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8080

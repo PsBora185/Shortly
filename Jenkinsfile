@@ -7,7 +7,6 @@ pipeline {
     }
 
     environment {
-        K8S_NAMESPACE = 'shortly'
         K8S_DIR       = 'k8s'
         KUBECONFIG    = '/home/ubuntu/.kube/config'
         TAG           = "v${BUILD_NUMBER}"
@@ -15,6 +14,17 @@ pipeline {
     }
 
     stages {
+
+        stage('public ip'){
+            steps{
+                script {
+            env.IP = sh(
+                script: 'curl -s ifconfig.me',
+                returnStdout: true
+            ).trim()
+        }
+            }
+        }
 
         stage('Checkout') {
             steps {
@@ -32,35 +42,36 @@ pipeline {
 
         stage('Cleanup Old Images') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                
                     sh """
-                        # Remove old app images (keep none - fresh build every time)
                         docker images --format '{{.Repository}}:{{.Tag}}' | \\
-                            grep -E '${DOCKER_USER}/${APP_NAME}-(backend|frontend)' | \\
+                            grep -E '${APP_NAME}-(backend|frontend)' | \\
                             xargs -r docker rmi -f || true
 
-                        # Remove dangling/unused images
                         docker image prune -f || true
                     """
-                }
+                
             }
         }
 
         stage('Build Images') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    sh 'docker build -t ${DOCKER_USER}/${APP_NAME}-backend:${TAG} ./backend'
-                    sh 'docker build -t ${DOCKER_USER}/${APP_NAME}-frontend:${TAG} ./frontend'
+                    sh 'docker build -t psbora185/${APP_NAME}-backend:${TAG} ./backend'
+                    sh 'docker build -t psbora185/${APP_NAME}-frontend:${TAG} ./frontend'
                 }
             }
-        }
 
         stage('Push Images') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
-                    sh 'docker push ${DOCKER_USER}/${APP_NAME}-backend:${TAG}'
-                    sh 'docker push ${DOCKER_USER}/${APP_NAME}-frontend:${TAG}'
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub', 
+                        usernameVariable: 'docker_user', 
+                        passwordVariable: 'docker_pass')
+                        ]) {
+                    echo "$docker_pass" | docker login -u "$docker_user" --password-stdin
+                    sh "docker push ${docker_user}/${APP_NAME}-backend:${TAG}"
+                    sh "docker push ${docker_user}/${APP_NAME}-frontend:${TAG}"
                 }
             }
         }
@@ -68,30 +79,24 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 withCredentials([
-                    usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS'),
-                    usernamePassword(credentialsId: 'gmail', usernameVariable: 'GMAIL_USER', passwordVariable: 'GMAIL_PASS'),
-                    string(credentialsId: 'jwt', variable: 'JWT_SECRET')
+                    usernamePassword(credentialsId: 'gmail', usernameVariable: 'gmail_user', passwordVariable: 'gmail_pass'),
+                    string(credentialsId: 'jwt', variable: 'jwt_sec')
                 ]) {
                     sh """
-                        # Create Namespace and Secrets
                         kubectl apply -f ${K8S_DIR}/namespace.yaml
                         
                         kubectl create secret generic ${APP_NAME}-secrets \\
-                            --from-literal=SPRING_MAIL_USERNAME="\$GMAIL_USER" \\
-                            --from-literal=SPRING_MAIL_PASSWORD="\$GMAIL_PASS" \\
-                            --from-literal=JWT_SECRET="\$JWT_SECRET" \\
-                            -n ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+                            --from-literal=SPRING_MAIL_USERNAME="\$gmail_user" \\
+                            --from-literal=SPRING_MAIL_PASSWORD="\$gmail_pass" \\
+                            --from-literal=JWT_SECRET="\$jwt_sec" \\
+                            --from-literal=BACKEND_URL="http://${IP}:30081" \\
+                            --from-literal=FRONTEND_URL="http://${IP}:30080" \\
+                            -n shortly --dry-run=client -o yaml | kubectl apply -f -
 
-                        # Apply Base Configurations
-                        kubectl apply -f ${K8S_DIR}/postgres.yaml
-                        kubectl apply -f ${K8S_DIR}/backend-deployment.yaml
-                        kubectl apply -f ${K8S_DIR}/backend-service.yaml
-                        kubectl apply -f ${K8S_DIR}/frontend-deployment.yaml
-                        kubectl apply -f ${K8S_DIR}/frontend-service.yaml
+                        kubectl apply -f ${K8S_DIR}/
 
-                        # Update Pods with New Version
-                        kubectl set image deployment/shortly-backend shortly-backend=\${DOCKER_USER}/shortly-backend:\${TAG} -n ${K8S_NAMESPACE}
-                        kubectl set image deployment/shortly-frontend shortly-frontend=\${DOCKER_USER}/shortly-frontend:\${TAG} -n ${K8S_NAMESPACE}
+                        kubectl set image deployment/shortly-backend shortly-backend=psbora185/shortly-backend:\${TAG} -n shortly
+                        kubectl set image deployment/shortly-frontend shortly-frontend=psbora185/shortly-frontend:\${TAG} -n shortly
                     """
                 }
             }
@@ -102,7 +107,6 @@ pipeline {
         always {
             cleanWs()
             sh """
-                # Remove newly built images after push to free disk space
                 docker images --format '{{.Repository}}:{{.Tag}}' | \\
                     grep -E '${APP_NAME}-(backend|frontend)' | \\
                     xargs -r docker rmi -f || true
@@ -111,13 +115,11 @@ pipeline {
         }
         success {
             script {
-                // Get the public IP of the EC2 instance
-                def publicIp = sh(script: 'curl -s ifconfig.me', returnStdout: true).trim()
                 
                 echo "Deployed successfully live on EC2!"
                 emailext(
                     subject: "SUCCESS: Shortly Pipeline Build #${BUILD_NUMBER}",
-                    body: "The deployment was successful!\n\nShortly is live on: http://${publicIp}:30080\n\nCheck Jenkins for details: ${BUILD_URL}",
+                    body: "The deployment was successful!\n\nShortly is live on: http://${IP}:30080\n\nCheck Jenkins for details: ${BUILD_URL}",
                     to: "pranavsinghbora@gmail.com"
                 )
             }
