@@ -10,3 +10,13 @@ build/
 *.tmp
 *.swp
 *.class
+task.txt
+backend/.m2repo/
+backend/target/
+frontend/dist/
+frontend/node_modules/
+frontend/*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
+.idea/
+.vscode/

@@ -1,32 +1,25 @@
 package com.urlShortner.service;
 
-import java.net.URI;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.urlShortner.dto.AnalyticsResponse;
 import com.urlShortner.dto.CreateUrlRequest;
 import com.urlShortner.dto.UrlResponse;
-import com.urlShortner.entity.UrlAnalyticsEntity;
-import com.urlShortner.entity.UrlMappingEntity;
+import com.urlShortner.entity.Url;
+import com.urlShortner.entity.User;
 import com.urlShortner.exception.BadRequestException;
 import com.urlShortner.exception.ConflictException;
 import com.urlShortner.exception.GoneException;
 import com.urlShortner.exception.ResourceNotFoundException;
-import com.urlShortner.repository.UrlAnalyticsRepository;
 import com.urlShortner.repository.UrlRepository;
+import com.urlShortner.repository.UserRepository;
+import java.net.URI;
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class UrlShortenerService {
@@ -35,20 +28,21 @@ public class UrlShortenerService {
 	private static final int GENERATED_CODE_LENGTH = 8;
 
 	private final UrlRepository urlRepository;
-	private final UrlAnalyticsRepository analyticsRepository;
+	private final UserRepository userRepository;
 	private final String publicBaseUrl;
 
 	public UrlShortenerService(
 			UrlRepository urlRepository,
-			UrlAnalyticsRepository analyticsRepository,
+			UserRepository userRepository,
 			@Value("${app.public-base-url:http://localhost:8080}") String publicBaseUrl) {
 		this.urlRepository = urlRepository;
-		this.analyticsRepository = analyticsRepository;
+		this.userRepository = userRepository;
 		this.publicBaseUrl = normalizeBaseUrl(publicBaseUrl);
 	}
 
 	@Transactional
 	public UrlResponse create(CreateUrlRequest request, String ownerEmail) {
+		User user = findUser(ownerEmail);
 		String originalUrl = normalizeAndValidateUrl(request.originalUrl());
 		String shortCode = resolveAvailableShortCode(request.customShortCode());
 		Instant now = Instant.now();
@@ -57,130 +51,93 @@ public class UrlShortenerService {
 			throw new BadRequestException("Expiration time must be in the future");
 		}
 
-		UrlMappingEntity url = new UrlMappingEntity();
+		Url url = new Url();
+		url.setUser(user);
 		url.setOriginalUrl(originalUrl);
 		url.setShortCode(shortCode);
-		url.setOwnerEmail(normalizeOwnerEmail(ownerEmail));
 		url.setCreatedAt(now);
 		url.setExpiresAt(expiresAt);
-		urlRepository.save(url);
+		url.setClicks(0L);
+		url.setLastAccessed(null);
+		url = urlRepository.save(url);
 
-		UrlAnalyticsEntity analytics = new UrlAnalyticsEntity();
-		analytics.setShortCode(shortCode);
-		analytics.setClicks(0L);
-		analyticsRepository.save(analytics);
-
-		return toResponse(url, analytics);
+		return toResponse(url);
 	}
 
 	@Transactional(readOnly = true)
 	public List<UrlResponse> listAll(String ownerEmail, boolean admin) {
-		List<UrlMappingEntity> urls = admin
+		List<Url> urls = admin
 				? urlRepository.findAllByOrderByCreatedAtDesc()
-				: urlRepository.findAllByOwnerEmailOrderByCreatedAtDesc(normalizeOwnerEmail(ownerEmail));
-		return toResponses(urls, loadAnalytics(urls));
+				: urlRepository.findAllByUser_EmailOrderByCreatedAtDesc(normalizeOwnerEmail(ownerEmail));
+		return urls.stream().map(this::toResponse).toList();
 	}
 
 	@Transactional(readOnly = true)
 	public List<UrlResponse> listExpired(String ownerEmail, boolean admin) {
 		Instant now = Instant.now();
-		List<UrlMappingEntity> urls = admin
+		List<Url> urls = admin
 				? urlRepository.findByExpiresAtLessThanEqual(now)
-				: urlRepository.findByOwnerEmailAndExpiresAtLessThanEqual(normalizeOwnerEmail(ownerEmail), now);
-		return toResponses(urls, loadAnalytics(urls));
+				: urlRepository.findByUser_EmailAndExpiresAtLessThanEqual(normalizeOwnerEmail(ownerEmail), now);
+		return urls.stream().map(this::toResponse).toList();
 	}
 
 	@Transactional
 	public long purgeExpiredUrls() {
 		Instant now = Instant.now();
-		List<UrlMappingEntity> expired = urlRepository.findByExpiresAtLessThanEqual(now);
+		List<Url> expired = urlRepository.findByExpiresAtLessThanEqual(now);
 		if (expired.isEmpty()) {
 			return 0L;
 		}
 
-		List<String> shortCodes = expired.stream().map(UrlMappingEntity::getShortCode).toList();
-		analyticsRepository.deleteByShortCodeIn(shortCodes);
 		urlRepository.deleteAll(expired);
 		return expired.size();
 	}
 
 	@Transactional
 	public void deleteById(UUID id, String ownerEmail, boolean admin) {
-		UrlMappingEntity url;
-		if (admin) {
-			url = urlRepository.findById(id)
-					.orElseThrow(() -> new ResourceNotFoundException("URL not found: " + id));
-		} else {
-			url = urlRepository.findByIdAndOwnerEmail(id, normalizeOwnerEmail(ownerEmail))
-					.orElseThrow(() -> new ResourceNotFoundException("URL not found: " + id));
-		}
-		analyticsRepository.deleteByShortCode(url.getShortCode());
+		Url url = admin
+				? urlRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("URL not found: " + id))
+				: urlRepository.findByIdAndUser_Email(id, normalizeOwnerEmail(ownerEmail))
+						.orElseThrow(() -> new ResourceNotFoundException("URL not found: " + id));
 		urlRepository.delete(url);
 	}
 
 	@Transactional(readOnly = true)
 	public AnalyticsResponse getAnalytics(String shortCode, String ownerEmail, boolean admin) {
-		UrlMappingEntity url = admin ? findActiveOrExpiredUrl(shortCode) : findOwnedUrl(shortCode, ownerEmail);
-		UrlAnalyticsEntity analytics = analyticsRepository.findByShortCode(url.getShortCode())
-				.orElseThrow(() -> new ResourceNotFoundException("Analytics not found for short code: " + shortCode));
+		Url url = admin ? findUrl(shortCode) : findOwnedUrl(shortCode, ownerEmail);
 		return new AnalyticsResponse(
 				url.getShortCode(),
-				analytics.getClicks(),
+				url.getClicks(),
 				url.getCreatedAt(),
-				analytics.getLastAccessed(),
+				url.getLastAccessed(),
 				url.getExpiresAt());
 	}
 
 	@Transactional
-	public UrlMappingEntity resolveUrlForRedirect(String shortCode) {
-		UrlMappingEntity url = findActiveOrExpiredUrl(shortCode);
+	public Url resolveUrlForRedirect(String shortCode) {
+		Url url = findUrl(shortCode);
 		if (url.isExpired(Instant.now())) {
 			throw new GoneException("This short URL has expired");
 		}
 
-		UrlAnalyticsEntity analytics = analyticsRepository.findByShortCode(shortCode)
-				.orElseThrow(() -> new ResourceNotFoundException("Analytics not found for short code: " + shortCode));
-		analytics.registerClick(Instant.now());
-		analyticsRepository.save(analytics);
-		return url;
+		url.setClicks(url.getClicks() + 1);
+		url.setLastAccessed(Instant.now());
+		return urlRepository.save(url);
 	}
 
-	private UrlMappingEntity findActiveOrExpiredUrl(String shortCode) {
+	private Url findUrl(String shortCode) {
 		String normalizedShortCode = normalizeShortCode(shortCode);
 		return urlRepository.findByShortCode(normalizedShortCode)
 				.orElseThrow(() -> new ResourceNotFoundException("Short URL not found: " + shortCode));
 	}
 
-	private UrlMappingEntity findOwnedUrl(String shortCode, String ownerEmail) {
+	private Url findOwnedUrl(String shortCode, String ownerEmail) {
 		String normalizedShortCode = normalizeShortCode(shortCode);
-		return urlRepository.findByShortCodeAndOwnerEmail(normalizedShortCode, normalizeOwnerEmail(ownerEmail))
+		return urlRepository.findByShortCodeAndUser_Email(normalizedShortCode, normalizeOwnerEmail(ownerEmail))
 				.orElseThrow(() -> new ResourceNotFoundException("Short URL not found: " + shortCode));
 	}
 
-	private List<UrlResponse> toResponses(List<UrlMappingEntity> urls, Map<String, UrlAnalyticsEntity> analyticsMap) {
-		List<UrlResponse> responses = new ArrayList<>(urls.size());
-		for (UrlMappingEntity url : urls) {
-			UrlAnalyticsEntity analytics = analyticsMap.get(url.getShortCode());
-			responses.add(toResponse(url, analytics));
-		}
-		return responses;
-	}
-
-	private Map<String, UrlAnalyticsEntity> loadAnalytics(Collection<UrlMappingEntity> urls) {
-		List<String> shortCodes = urls.stream()
-				.map(UrlMappingEntity::getShortCode)
-				.filter(Objects::nonNull)
-				.toList();
-		if (shortCodes.isEmpty()) {
-			return Map.of();
-		}
-		return analyticsRepository.findAllByShortCodeIn(shortCodes).stream()
-				.collect(Collectors.toMap(UrlAnalyticsEntity::getShortCode, Function.identity()));
-	}
-
-	private UrlResponse toResponse(UrlMappingEntity url, UrlAnalyticsEntity analytics) {
-		long clicks = analytics != null ? analytics.getClicks() : 0L;
-		Instant lastAccessed = analytics != null ? analytics.getLastAccessed() : null;
+	private UrlResponse toResponse(Url url) {
 		return new UrlResponse(
 				url.getId(),
 				url.getOriginalUrl(),
@@ -188,8 +145,13 @@ public class UrlShortenerService {
 				buildShortUrl(url.getShortCode()),
 				url.getCreatedAt(),
 				url.getExpiresAt(),
-				clicks,
-				lastAccessed);
+				url.getClicks(),
+				url.getLastAccessed());
+	}
+
+	private User findUser(String ownerEmail) {
+		return userRepository.findByEmail(normalizeOwnerEmail(ownerEmail))
+				.orElseThrow(() -> new ResourceNotFoundException("User not found"));
 	}
 
 	private String buildShortUrl(String shortCode) {
@@ -223,7 +185,8 @@ public class UrlShortenerService {
 	}
 
 	private String normalizeShortCode(String shortCode) {
-		String value = Optional.ofNullable(shortCode).orElseThrow(() -> new BadRequestException("Short code is required"))
+		String value = Optional.ofNullable(shortCode)
+				.orElseThrow(() -> new BadRequestException("Short code is required"))
 				.trim();
 		if (!value.matches("^[A-Za-z0-9_-]{4,32}$")) {
 			throw new BadRequestException("Short code must be 4 to 32 characters and use letters, numbers, hyphen or underscore");
@@ -232,7 +195,8 @@ public class UrlShortenerService {
 	}
 
 	private String normalizeAndValidateUrl(String originalUrl) {
-		String value = Optional.ofNullable(originalUrl).orElseThrow(() -> new BadRequestException("Original URL is required"))
+		String value = Optional.ofNullable(originalUrl)
+				.orElseThrow(() -> new BadRequestException("Original URL is required"))
 				.trim();
 		try {
 			URI uri = URI.create(value);

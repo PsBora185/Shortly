@@ -37,11 +37,21 @@ services:
       ADMIN_EMAIL: admin@example.com
       ADMIN_PASSWORD: Admin12345!
       ADMIN_FULL_NAME: Admin User
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
-      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://localhost:8080/login/oauth2/code/google}
     ports:
       - "8080:8080"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: http://localhost:8080
+    container_name: urlshortner-frontend
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_started
+    ports:
+      - "5173:80"
 
 volumes:
   postgres_data:

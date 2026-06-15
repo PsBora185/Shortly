@@ -2,7 +2,7 @@ package com.urlShortner.security;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.urlShortner.entity.AppUser;
+import com.urlShortner.entity.User;
 import com.urlShortner.entity.UserRole;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -29,13 +29,13 @@ public class JwtService {
 	public JwtService(
 			ObjectMapper objectMapper,
 			@Value("${app.jwt.secret}") String jwtSecret,
-			@Value("${app.jwt.expiration-ms:259200000}") long expirationMillis) {
+			@Value("${app.jwt.expiration-ms:345600000}") long expirationMillis) {
 		this.objectMapper = objectMapper;
 		this.secret = jwtSecret.getBytes(StandardCharsets.UTF_8);
 		this.expirationMillis = expirationMillis;
 	}
 
-	public AuthToken issueToken(AppUser user) {
+	public AuthToken issueToken(User user) {
 		Instant now = Instant.now();
 		Instant expiresAt = now.plusMillis(expirationMillis);
 

@@ -7,9 +7,12 @@ import static org.mockito.Mockito.when;
 
 import com.urlShortner.dto.LoginRequest;
 import com.urlShortner.dto.RegisterRequest;
-import com.urlShortner.entity.AppUser;
+import com.urlShortner.entity.User;
 import com.urlShortner.entity.AuthProvider;
+import com.urlShortner.entity.OtpSession;
 import com.urlShortner.entity.UserRole;
+import com.urlShortner.exception.BadRequestException;
+import com.urlShortner.repository.OtpSessionRepository;
 import com.urlShortner.repository.UserRepository;
 import com.urlShortner.security.JwtService;
 import java.time.Instant;
@@ -30,29 +33,41 @@ class AuthServiceTest {
 	private UserRepository userRepository;
 
 	@Mock
+	private OtpSessionRepository otpSessionRepository;
+
+	@Mock
 	private PasswordEncoder passwordEncoder;
 
 	@Mock
 	private JwtService jwtService;
 
+	@Mock
+	private EmailService emailService;
+
 	private AuthService authService;
 
 	@BeforeEach
 	void setUp() {
-		authService = new AuthService(userRepository, passwordEncoder, jwtService);
+		authService = new AuthService(userRepository, otpSessionRepository, passwordEncoder, jwtService, emailService);
 	}
 
 	@Test
-	void registerCreatesLocalUser() {
+	void registerCreatesLocalUserWhenVerified() {
 		when(userRepository.existsByEmail("user@example.com")).thenReturn(false);
+
+		OtpSession session = new OtpSession();
+		session.setEmail("user@example.com");
+		session.setVerified(true);
+		when(otpSessionRepository.findByEmail("user@example.com")).thenReturn(Optional.of(session));
+
 		when(passwordEncoder.encode("password123")).thenReturn("hashed");
-		when(userRepository.save(any(AppUser.class))).thenAnswer(invocation -> {
-			AppUser user = invocation.getArgument(0);
+		when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
+			User user = invocation.getArgument(0);
 			user.setId(UUID.randomUUID());
 			return user;
 		});
-		when(jwtService.issueToken(any(AppUser.class))).thenAnswer(invocation -> {
-			AppUser user = invocation.getArgument(0);
+		when(jwtService.issueToken(any(User.class))).thenAnswer(invocation -> {
+			User user = invocation.getArgument(0);
 			return new JwtService.AuthToken("token", Instant.now().plusSeconds(10), 10);
 		});
 
@@ -61,8 +76,17 @@ class AuthServiceTest {
 	}
 
 	@Test
+	void registerFailsWhenNotVerified() {
+		when(userRepository.existsByEmail("unverified@example.com")).thenReturn(false);
+		when(otpSessionRepository.findByEmail("unverified@example.com")).thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> authService.register(new RegisterRequest("Test User", "unverified@example.com", "password123")))
+				.isInstanceOf(BadRequestException.class);
+	}
+
+	@Test
 	void loginRejectsInvalidPassword() {
-		AppUser user = new AppUser();
+		User user = new User();
 		user.setEmail("user@example.com");
 		user.setPasswordHash("hashed");
 		user.setRole(UserRole.USER);

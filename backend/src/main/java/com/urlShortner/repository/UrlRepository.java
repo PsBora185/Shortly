@@ -6,21 +6,21 @@ import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import com.urlShortner.entity.UrlMappingEntity;
+import com.urlShortner.entity.Url;
 
-public interface UrlRepository extends JpaRepository<UrlMappingEntity, UUID> {
+public interface UrlRepository extends JpaRepository<Url, UUID> {
 
-	Optional<UrlMappingEntity> findByShortCode(String shortCode);
+	Optional<Url> findByShortCode(String shortCode);
 
-	Optional<UrlMappingEntity> findByShortCodeAndOwnerEmail(String shortCode, String ownerEmail);
+	Optional<Url> findByShortCodeAndUser_Email(String shortCode, String email);
 
-	Optional<UrlMappingEntity> findByIdAndOwnerEmail(UUID id, String ownerEmail);
+	Optional<Url> findByIdAndUser_Email(UUID id, String email);
 
-	List<UrlMappingEntity> findAllByOrderByCreatedAtDesc();
+	List<Url> findAllByOrderByCreatedAtDesc();
 
-	List<UrlMappingEntity> findAllByOwnerEmailOrderByCreatedAtDesc(String ownerEmail);
+	List<Url> findAllByUser_EmailOrderByCreatedAtDesc(String email);
 
-	List<UrlMappingEntity> findByExpiresAtLessThanEqual(Instant instant);
+	List<Url> findByExpiresAtLessThanEqual(Instant instant);
 
-	List<UrlMappingEntity> findByOwnerEmailAndExpiresAtLessThanEqual(String ownerEmail, Instant instant);
+	List<Url> findByUser_EmailAndExpiresAtLessThanEqual(String email, Instant instant);
 }

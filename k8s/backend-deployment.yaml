@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shortly-backend
+  namespace: shortly
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: shortly-backend
+  template:
+    metadata:
+      labels:
+        app: shortly-backend
+    spec:
+      containers:
+        - name: shortly-backend
+          image: YOUR_DOCKERHUB_USERNAME/shortly-backend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - secretRef:
+                name: app-secrets

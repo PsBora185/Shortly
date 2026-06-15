@@ -1,39 +1,24 @@
 spring:
   application:
     name: urlShortner
-  datasource:
-    url: jdbc:h2:mem:urlshortner;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
-  h2:
-    console:
-      enabled: true
-      path: /h2-console
+  profiles:
+    default: local
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${SPRING_MAIL_USERNAME:}
+    password: ${SPRING_MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
   jpa:
     open-in-view: false
-    hibernate:
-      ddl-auto: validate
-    properties:
-      hibernate:
-        format_sql: true
-  flyway:
-    enabled: true
   mvc:
     problemdetails:
       enabled: true
-  security:
-    oauth2:
-      client:
-        registration:
-          google:
-            client-id: ${GOOGLE_CLIENT_ID:}
-            client-secret: ${GOOGLE_CLIENT_SECRET:}
-            scope:
-              - openid
-              - profile
-              - email
-            redirect-uri: "${GOOGLE_REDIRECT_URI:{baseUrl}/login/oauth2/code/google}"
 
 server:
   port: 8080
@@ -50,11 +35,13 @@ management:
 
 app:
   public-base-url: ${PUBLIC_BASE_URL:http://localhost:8080}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://localhost:3000}
   cleanup:
     fixed-delay-ms: 21600000
   jwt:
-    secret: ${JWT_SECRET:change-me-change-me-change-me-change-me}
-    expiration-ms: ${JWT_EXPIRATION_MS:259200000}
+    secret: ${JWT_SECRET:}
+    expiration-ms: 345600000
   admin:
     email: ${ADMIN_EMAIL:}
     password: ${ADMIN_PASSWORD:}

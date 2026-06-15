@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shortly-frontend
+  namespace: shortly
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: shortly-frontend
+  template:
+    metadata:
+      labels:
+        app: shortly-frontend
+    spec:
+      containers:
+        - name: shortly-frontend
+          image: YOUR_DOCKERHUB_USERNAME/shortly-frontend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80

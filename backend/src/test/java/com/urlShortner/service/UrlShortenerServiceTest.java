@@ -9,11 +9,13 @@ import static org.mockito.Mockito.when;
 
 import com.urlShortner.dto.CreateUrlRequest;
 import com.urlShortner.dto.UrlResponse;
-import com.urlShortner.entity.UrlAnalyticsEntity;
-import com.urlShortner.entity.UrlMappingEntity;
+import com.urlShortner.entity.AuthProvider;
+import com.urlShortner.entity.Url;
+import com.urlShortner.entity.User;
+import com.urlShortner.entity.UserRole;
 import com.urlShortner.exception.GoneException;
-import com.urlShortner.repository.UrlAnalyticsRepository;
 import com.urlShortner.repository.UrlRepository;
+import com.urlShortner.repository.UserRepository;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
@@ -31,20 +33,25 @@ class UrlShortenerServiceTest {
 	private UrlRepository urlRepository;
 
 	@Mock
-	private UrlAnalyticsRepository analyticsRepository;
+	private UserRepository userRepository;
 
 	private UrlShortenerService urlShortenerService;
 
 	@BeforeEach
 	void setUp() {
-		urlShortenerService = new UrlShortenerService(urlRepository, analyticsRepository, "http://localhost:8080");
+		urlShortenerService = new UrlShortenerService(urlRepository, userRepository, "http://localhost:8080");
 	}
 
 	@Test
-	void createPersistsUrlAndAnalytics() {
+	void createPersistsUrlWithUserRelation() {
+		User user = new User();
+		user.setEmail("user@example.com");
+		user.setFullName("User");
+		user.setProvider(AuthProvider.LOCAL);
+		user.setRole(UserRole.USER);
+		when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
 		when(urlRepository.findByShortCode("mycode12")).thenReturn(Optional.empty());
-		when(urlRepository.save(any(UrlMappingEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
-		when(analyticsRepository.save(any(UrlAnalyticsEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		when(urlRepository.save(any(Url.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		Instant expiresAt = Instant.now().plusSeconds(3600);
 		UrlResponse response = urlShortenerService.create(
@@ -57,40 +64,36 @@ class UrlShortenerServiceTest {
 		assertThat(response.clicks()).isZero();
 		assertThat(response.expiresAt()).isEqualTo(expiresAt);
 
-		ArgumentCaptor<UrlMappingEntity> urlCaptor = ArgumentCaptor.forClass(UrlMappingEntity.class);
+		ArgumentCaptor<Url> urlCaptor = ArgumentCaptor.forClass(Url.class);
 		verify(urlRepository).save(urlCaptor.capture());
+		assertThat(urlCaptor.getValue().getUser()).isSameAs(user);
 		assertThat(urlCaptor.getValue().getOriginalUrl()).isEqualTo("https://example.com/articles/devops");
 		assertThat(urlCaptor.getValue().getShortCode()).isEqualTo("mycode12");
-		verify(analyticsRepository).save(any(UrlAnalyticsEntity.class));
 	}
 
 	@Test
-	void resolveUrlForRedirectRegistersClick() {
-		UrlMappingEntity url = new UrlMappingEntity();
+	void resolveUrlForRedirectUpdatesClicksOnUrl() {
+		Url url = new Url();
 		url.setId(UUID.randomUUID());
 		url.setOriginalUrl("https://example.com");
 		url.setShortCode("devops01");
 		url.setCreatedAt(Instant.parse("2026-06-13T00:00:00Z"));
-
-		UrlAnalyticsEntity analytics = new UrlAnalyticsEntity();
-		analytics.setShortCode("devops01");
-		analytics.setClicks(3L);
+		url.setClicks(3L);
 
 		when(urlRepository.findByShortCode("devops01")).thenReturn(Optional.of(url));
-		when(analyticsRepository.findByShortCode("devops01")).thenReturn(Optional.of(analytics));
-		when(analyticsRepository.save(any(UrlAnalyticsEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		when(urlRepository.save(any(Url.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-		UrlMappingEntity resolved = urlShortenerService.resolveUrlForRedirect("devops01");
+		Url resolved = urlShortenerService.resolveUrlForRedirect("devops01");
 
 		assertThat(resolved.getOriginalUrl()).isEqualTo("https://example.com");
-		assertThat(analytics.getClicks()).isEqualTo(4L);
-		assertThat(analytics.getLastAccessed()).isNotNull();
-		verify(analyticsRepository).save(analytics);
+		assertThat(resolved.getClicks()).isEqualTo(4L);
+		assertThat(resolved.getLastAccessed()).isNotNull();
+		verify(urlRepository).save(url);
 	}
 
 	@Test
 	void expiredUrlsAreRejectedOnRedirect() {
-		UrlMappingEntity url = new UrlMappingEntity();
+		Url url = new Url();
 		url.setShortCode("oldlink1");
 		url.setOriginalUrl("https://example.com");
 		url.setCreatedAt(Instant.parse("2026-06-13T00:00:00Z"));
@@ -102,6 +105,6 @@ class UrlShortenerServiceTest {
 				.isInstanceOf(GoneException.class)
 				.hasMessageContaining("expired");
 
-		verifyNoInteractions(analyticsRepository);
+		verifyNoInteractions(userRepository);
 	}
 }
