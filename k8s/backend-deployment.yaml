@@ -3,43 +3,53 @@ kind: Deployment
 metadata:
   name: shortly-backend
   namespace: shortly
+
 spec:
   replicas: 1
+
   selector:
     matchLabels:
       app: shortly-backend
+
   template:
     metadata:
       labels:
         app: shortly-backend
+
     spec:
       containers:
         - name: shortly-backend
           image: psbora185/shortly-backend:latest
           imagePullPolicy: Always
+
           ports:
             - containerPort: 8080
+
           env:
             - name: SPRING_PROFILES_ACTIVE
               value: "prod"
+
             - name: DB_HOST
               value: "shortly-postgres"
+
             - name: DB_NAME
               value: "shortly"
+
             - name: DB_USERNAME
               value: "shortly"
+
             - name: DB_PASSWORD
               value: "shortly123"
-            - name: BASE_URL
-              value: BACKEND_URL
-            - name: APP_CORS_ALLOWED_ORIGINS
-              value: FRONTEND_URL
+
             - name: ADMIN_EMAIL
               value: "admin@gmail.com"
+
             - name: ADMIN_PASSWORD
               value: "admin185"
+
             - name: ADMIN_FULL_NAME
               value: "Admin"
+
           envFrom:
             - secretRef:
                 name: shortly-secrets

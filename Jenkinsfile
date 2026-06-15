@@ -91,8 +91,8 @@ pipeline {
                             --from-literal=SPRING_MAIL_USERNAME="\$gmail_user" \\
                             --from-literal=SPRING_MAIL_PASSWORD="\$gmail_pass" \\
                             --from-literal=JWT_SECRET="\$jwt_sec" \\
-                            --from-literal=BACKEND_URL="http://${IP}:30081" \\
-                            --from-literal=FRONTEND_URL="http://${IP}:30080" \\
+                            --from-literal=BASE_URL="http://${IP}:30081" \\
+                            --from-literal=CORS_ALLOWED_ORIGINS="http://${IP}:30080" \\
                             -n shortly --dry-run=client -o yaml | kubectl apply -f -
 
                         kubectl apply -f ${K8S_DIR}/
