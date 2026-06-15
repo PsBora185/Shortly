@@ -10,18 +10,11 @@ pipeline {
         NAMESPACE     = 'shortly'
         K8S_DIR       = 'k8s'
         DOCKER_CREDS  = 'dockerhub'
+        KUBECONFIG    = '/home/ubuntu/.kube/config'
     }
 
     stages {
 
-        stage('Debug') {
-    steps {
-        sh 'whoami'
-        sh 'pwd'
-        sh 'echo $KUBECONFIG'
-        sh 'ls -l ~/.kube/config'
-    }
-}
 
         // ─────────────────────────────────────────────
         stage('Checkout') {
