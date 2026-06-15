@@ -88,5 +88,20 @@ pipeline {
                 docker image prune -f || true
             """
         }
+        success {
+            script {
+                // Get the public IP of the EC2 instance
+                def publicIp = sh(script: 'curl -s ifconfig.me', returnStdout: true).trim()
+                
+                mail to: 'pranavsinghbora@gmail.com',
+                     subject: "SUCCESS: Shortly Pipeline Build #${BUILD_NUMBER}",
+                     body: "The deployment was successful!\n\nShortly is live on: http://${publicIp}:30080\n\nCheck Jenkins for details: ${BUILD_URL}"
+            }
+        }
+        failure {
+            mail to: 'pranavsinghbora@gmail.com',
+                 subject: "FAILED: Shortly Pipeline Build #${BUILD_NUMBER}",
+                 body: "The pipeline failed to deploy.\n\nPlease check the Jenkins logs to fix the issue: ${BUILD_URL}"
+        }
     }
 }
