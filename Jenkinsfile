@@ -69,7 +69,9 @@ pipeline {
                         usernameVariable: 'docker_user', 
                         passwordVariable: 'docker_pass')
                         ]) {
-                    echo "$docker_pass" | docker login -u "$docker_user" --password-stdin
+                    sh"""
+                        echo "$docker_pass" | docker login -u "$docker_user" --password-stdin
+                        """
                     sh "docker push ${docker_user}/${APP_NAME}-backend:${TAG}"
                     sh "docker push ${docker_user}/${APP_NAME}-frontend:${TAG}"
                 }
