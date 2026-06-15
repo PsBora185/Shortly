@@ -58,7 +58,8 @@ class AuthServiceTest {
 		OtpSession session = new OtpSession();
 		session.setEmail("user@example.com");
 		session.setVerified(true);
-		when(otpSessionRepository.findByEmail("user@example.com")).thenReturn(Optional.of(session));
+		when(otpSessionRepository.findFirstByEmailOrderByCreatedAtDesc("user@example.com"))
+				.thenReturn(Optional.of(session));
 
 		when(passwordEncoder.encode("password123")).thenReturn("hashed");
 		when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
@@ -78,9 +79,11 @@ class AuthServiceTest {
 	@Test
 	void registerFailsWhenNotVerified() {
 		when(userRepository.existsByEmail("unverified@example.com")).thenReturn(false);
-		when(otpSessionRepository.findByEmail("unverified@example.com")).thenReturn(Optional.empty());
+		when(otpSessionRepository.findFirstByEmailOrderByCreatedAtDesc("unverified@example.com"))
+				.thenReturn(Optional.empty());
 
-		assertThatThrownBy(() -> authService.register(new RegisterRequest("Test User", "unverified@example.com", "password123")))
+		assertThatThrownBy(
+				() -> authService.register(new RegisterRequest("Test User", "unverified@example.com", "password123")))
 				.isInstanceOf(BadRequestException.class);
 	}
 
