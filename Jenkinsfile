@@ -14,6 +14,15 @@ pipeline {
 
     stages {
 
+        stage('Debug') {
+    steps {
+        sh 'whoami'
+        sh 'pwd'
+        sh 'echo $KUBECONFIG'
+        sh 'ls -l ~/.kube/config'
+    }
+}
+
         // ─────────────────────────────────────────────
         stage('Checkout') {
             steps {
