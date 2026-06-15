@@ -10,7 +10,6 @@ pipeline {
         NAMESPACE     = 'shortly'
         K8S_DIR       = 'k8s'
         DOCKER_CREDS  = 'dockerhub'
-        KUBE_CREDS    = 'kubeconfig-creds'
     }
 
     stages {
@@ -101,13 +100,10 @@ pipeline {
             when { branch 'main' }
             steps {
                 withCredentials([
-                    file(credentialsId: "${KUBE_CREDS}",    variable: 'KUBECONFIG_FILE'),
                     usernamePassword(credentialsId: 'gmail', usernameVariable: 'GMAIL_USER', passwordVariable: 'GMAIL_PASS'),
                     string(credentialsId: 'jwt',             variable: 'JWT_SECRET')
                 ]) {
                     sh """
-                        export KUBECONFIG=\$KUBECONFIG_FILE
-
                         # Namespace
                         kubectl apply -f ${K8S_DIR}/namespace.yaml
 
