@@ -1,18 +1,18 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: urlshortner-postgres
+    container_name: shortly-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: urlshortner
-      POSTGRES_USER: urlshortner
-      POSTGRES_PASSWORD: urlshortner123
+      POSTGRES_DB: shortly
+      POSTGRES_USER: shortly
+      POSTGRES_PASSWORD: shortly123
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U urlshortner -d urlshortner"]
+      test: ["CMD-SHELL", "pg_isready -U shortly -d shortly"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -20,7 +20,7 @@ services:
   api:
     build:
       context: ./backend
-    container_name: urlshortner-api
+    container_name: shortly-api
     restart: unless-stopped
     depends_on:
       postgres:
@@ -29,9 +29,9 @@ services:
       SPRING_PROFILES_ACTIVE: prod
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_NAME: urlshortner
-      DB_USERNAME: urlshortner
-      DB_PASSWORD: urlshortner123
+      DB_NAME: shortly
+      DB_USERNAME: shortly
+      DB_PASSWORD: shortly123
       PUBLIC_BASE_URL: http://localhost:8080
       JWT_SECRET: change-me-change-me-change-me-change-me
       ADMIN_EMAIL: admin@example.com
@@ -45,7 +45,7 @@ services:
       context: ./frontend
       args:
         VITE_API_BASE_URL: http://localhost:8080
-    container_name: urlshortner-frontend
+    container_name: shortly-frontend
     restart: unless-stopped
     depends_on:
       api:
